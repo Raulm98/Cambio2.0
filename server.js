@@ -85,14 +85,20 @@ function checkAndHandleGameOver(room, roomId, reason = '') {
 }
 
 function advanceTurn(room, roomId) {
+  // 1. LIMPIAR ESTADOS DEL TURNO ANTERIOR (CORRECCIÓN CLAVE)
   room.drawnCard = null;
+  room.drawnFrom = null;
   room.pendingEffect = null;
   room.state = 'PLAYING';
 
   if (checkAndHandleGameOver(room, roomId)) return;
 
+  // 2. Avanzar al siguiente jugador en la lista
   room.currentTurnIndex = (room.currentTurnIndex + 1) % room.playerOrder.length;
   const currentTurnSocketId = room.playerOrder[room.currentTurnIndex];
+
+  // Log para depuración en Render
+  console.log(`[LOG SUT] Cambio de turno en \({roomId}. Siguiente jugador:\){room.players[currentTurnSocketId].name}`);
 
   io.to(roomId).emit('turnUpdated', {
     currentTurnSocketId: currentTurnSocketId,
