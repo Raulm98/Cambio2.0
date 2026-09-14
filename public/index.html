@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Juego de Cartas Españolas</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #1b4332; color: #ffffff; user-select: none; }
+    .card-custom { background-color: #2d6a4f; border: none; border-radius: 12px; }
+    
+    .table-board { background-color: #081c15; border: 3px solid #d4af37; border-radius: 16px; padding: 15px; }
+    .card-slot {
+      width: 55px; height: 80px;
+      background-color: #2d6a4f;
+      border: 2px dashed #74c69d;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.85rem;
+      margin: 4px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .card-slot:active { transform: scale(0.95); }
+    .card-back {
+      background: linear-gradient(135deg, #b7094c, #5c0029);
+      border: 2px solid #ffb703;
+      color: white;
+    }
+    .card-front {
+      background-color: #f8f9fa;
+      color: #111;
+      border: 2px solid #333;
+    }
+    .peek-active { border: 3px solid #52b788 !important; box-shadow: 0 0 10px #52b788; }
+    .slot-selectable { border: 3px solid #ffb703 !important; animation: pulse 1s infinite alternate; }
+    .slot-fast-discard { border: 3px solid #ff4d6d !important; animation: fastPulse 0.6s infinite alternate; }
+    .slot-selected { border: 3px solid #00f0ff !important; box-shadow: 0 0 10px #00f0ff; }
+    @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
+    @keyframes fastPulse { from { border-color: #ff4d6d; } to { border-color: #ff4d6d; } }
+
+    .podium-rank { font-size: 1.5rem; font-weight: bold; }
+    .rank-1 { color: #ffd700; }
+    .rank-2 { color: #c0c0c0; }
+    .rank-3 { color: #cd7f32; }
+  </style>
+</head>
+<body class="d-flex align-items-center justify-content-center min-vh-100 p-2">
+
+  <div class="container text-center" style="max-width: 500px;">
+    
+    <!-- LOBBY Y FORMULARIOS -->
+    <div id="panel-inicio" class="card card-custom p-4 shadow-lg mb-3">
+      <h2 class="fw-bold text-warning mb-3">🎴 Juego de Cartas</h2>
+      <button class="btn btn-warning btn-lg mb-3 fw-bold text-dark" onclick="mostrarAdmin()">Crear Partida (Admin)</button>
+      <button class="btn btn-outline-light btn-lg fw-bold" onclick="mostrarJugador()">Unirme a Partida</button>
+    </div>
+
+    <!-- PANEL ADMIN -->
+    <div id="panel-admin" class="card card-custom p-4 shadow-lg d-none">
+      <h3 class="text-warning">Panel Administrador</h3>
+      <div class="mb-3 text-start">
+        <label class="form-label">Cantidad de Jugadores:</label>
+        <input type="number" id="maxPlayers" class="form-control" value="4" min="2" max="8">
+      </div>
+      <div class="mb-3 text-start">
+        <label class="form-label">Crea el PIN / Clave de la Sala:</label>
+        <input type="text" id="adminPinInput" class="form-control" placeholder="Ej: 1234 o CLAVE1" maxlength="10">
+      </div>
+      <button class="btn btn-success w-100 fw-bold" onclick="crearSala()">Crear Sala</button>
+    </div>
+
+    <!-- PANEL JUGADOR -->
+    <div id="panel-jugador" class="card card-custom p-4 shadow-lg d-none">
+      <h3 class="text-warning">Ingreso de Jugador</h3>
+      <div class="mb-2 text-start">
+        <label class="form-label">Código de Sala:</label>
+        <input type="text" id="roomIdInput" class="form-control" placeholder="Ej: SALA-1234">
+      </div>
+      <div class="mb-2 text-start">
+        <label class="form-label">Tu Nombre:</label>
+        <input type="text" id="playerNameInput" class="form-control" placeholder="Tu apodo">
+      </div>
+      <div class="mb-3 text-start">
+        <label class="form-label">PIN / Clave de la Sala:</label>
+        <input type="text" id="pinInput" class="form-control" placeholder="Ingrese el PIN de la sala">
+      </div>
+      <button class="btn btn-warning w-100 fw-bold text-dark" onclick="unirseASala()">Entrar a la Sala</button>
+    </div>
+
+    <!-- SALA DE ESPERA -->
+    <div id="panel-lobby" class="card card-custom p-4 shadow-lg d-none">
+      <h3 id="lobbyTitle" class="text-warning"></h3>
+      <h5 id="lobbyPinInfo" class="text-info mb-3"></h5>
+      
+      <h5 class="mt-2">Jugadores Conectados:</h5>
+      <ul id="playersList" class="list-group mb-3"></ul>
+
+      <div id="adminContainer" class="d-none mb-3">
+        <button id="btnStartGame" class="btn btn-success btn-lg w-100 fw-bold mt-2" onclick="iniciarJuego()">¡Iniciar Partida!</button>
+      </div>
+    </div>
+
+    <!-- TABLERO DE JUEGO -->
+    <div id="panel-juego" class="d-none">
+      <div id="statusBanner" class="alert alert-info fw-bold mb-2 py-2 fs-6">
+        Cargando...
+      </div>
+
+      <div class="table-board shadow-lg">
+        <!-- OPONENTES -->
+        <div id="opponentsArea" class="d-flex justify-content-around mb-3"></div>
+
+        <!-- MESA CENTRAL -->
+        <div class="d-flex justify-content-center align-items-center gap-3 my-2 p-2 bg-dark rounded-3 border border-secondary">
+          <div onclick="robarMazo()">
+            <small class="d-block text-muted">Mazo (<span id="deckCount">0</span>)</small>
+            <div id="deckSlot" class="card-slot card-back">🎴</div>
+          </div>
+          <div onclick="robarDescarte()">
+            <small class="d-block text-muted">Descarte</small>
+            <div id="discardSlot" class="card-slot card-front">--</div>
+          </div>
+        </div>
+
+        <!-- CARTA ROBADA TEMPORAL -->
+        <div id="drawnCardSection" class="card bg-dark border-warning p-2 my-2 d-none">
+          <small class="text-warning fw-bold">Carta Robada:</small>
+          <div class="d-flex justify-content-center align-items-center gap-2 mt-1">
+            <div id="drawnCardDisplay" class="card-slot card-front">--</div>
+            <div class="d-flex flex-column gap-1">
+              <button id="btnDiscardDrawn" class="btn btn-danger btn-sm fw-bold" onclick="descartarCartaRobada()">🗑️ Descartar</button>
+              <small class="text-white-50" style="font-size:0.7rem;">O toca una carta de tu tablero para reemplazarla</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL DE DECISIÓN DE EFECTO 11 -->
+        <div id="effect11Panel" class="card bg-dark border-info p-3 my-2 d-none">
+          <h6 class="text-info fw-bold">Efecto Sota (11): Cartas Reveladas</h6>
+          <div class="d-flex justify-content-around my-2">
+            <div>
+              <small class="d-block text-white-50">Tu Carta</small>
+              <div id="effect11MyCard" class="card-slot card-front">--</div>
+            </div>
+            <div>
+              <small class="d-block text-white-50">Carta Oponente</small>
+              <div id="effect11TargetCard" class="card-slot card-front">--</div>
+            </div>
+          </div>
+          <div class="d-flex gap-2 mt-2">
+            <button class="btn btn-success btn-sm w-50 fw-bold" onclick="decidirIntercambio11(true)">🔄 Intercambiar</button>
+            <button class="btn btn-secondary btn-sm w-50 fw-bold" onclick="decidirIntercambio11(false)">❌ Dejar como están</button>
+          </div>
+        </div>
+
+        <!-- TABLERO DEL JUGADOR -->
+        <div class="card card-custom p-2 mt-2">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <h6 id="myTurnBadge" class="text-warning fw-bold mb-0">Mi Tablero</h6>
+            <div class="d-flex gap-1">
+              <button id="btnCallEnd" class="btn btn-sm btn-outline-light fw-bold d-none" onclick="cantarFinJuego()">🛑 Cantar Fin</button>
+              <button id="btnToggleFastDiscard" class="btn btn-danger btn-sm fw-bold" onclick="toggleModoDescarteVeloz()">⚡ Descarte Veloz</button>
+              <button id="btnSkipEffect" class="btn btn-outline-warning btn-sm d-none" onclick="omitirEfecto()">Omitir Efecto</button>
+            </div>
+          </div>
+          <div id="myCardsGrid" class="d-flex flex-wrap justify-content-center"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL RESULTADOS Y PODIO -->
+    <div id="gameOverModal" class="modal fade" tabindex="-1" data-bs-backdrop="static">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-white border-warning">
+          <div class="modal-header border-secondary">
+            <h4 class="modal-title text-warning fw-bold">🏆 Fin de la Partida</h4>
+          </div>
+          <div class="modal-body text-center">
+            <p id="gameOverReason" class="text-info fw-bold mb-3"></p>
+            
+            <h5 class="fw-bold mb-3">Podio de Ganadores</h5>
+            <div id="podiumList" class="list-group mb-3"></div>
+          </div>
+          <div class="modal-footer border-secondary justify-content-center">
+            <button id="btnRestartGame" class="btn btn-success fw-bold d-none" onclick="reiniciarPartida()">🔄 Jugar Otra Partida</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
