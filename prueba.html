@@ -1,0 +1,181 @@
+<style>
+/* Reset and core print settings */
+@page { margin: 0; }
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { background-color: #ffffff; }
+body {
+padding: 24px 0;
+margin: 0 auto;
+max-width: 900px !important;
+border: none !important;
+background: transparent !important;
+font-family: 'Times New Roman', Georgia, serif;
+}
+.page {
+height: 297mm;
+margin: 0 auto 12px auto;
+padding: 18mm 18mm 12mm 18mm;
+background-color: #ffffff;
+border: 1px solid rgba(0, 0, 0, 0.12);
+display: flex;
+flex-direction: column;
+justify-content: space-between;
+position: relative;
+overflow: hidden;
+}
+.page-content {
+flex: 1 1 0;
+min-height: 0;
+overflow: hidden;
+display: flex;
+flex-direction: column;
+align-items: center;
+}
+.page-footer {
+flex-shrink: 0;
+margin-top: auto;
+padding-top: 4mm;
+display: flex;
+justify-content: space-between;
+align-items: center;
+font-size: 8.5pt;
+color: #64748b;
+border-top: 1px solid #e2e8f0;
+width: 100%;
+}
+@media print {
+body { padding: 0; background: none; }
+.page {
+margin: 0;
+border: none;
+height: 297mm;
+break-after: page;
+page-break-after: always;
+}
+}
+/* Document specific styling */
+.header-box {
+text-align: center;
+margin-bottom: 25px;
+width: 100%;
+}
+.header-box h1 {
+font-size: 18pt;
+margin: 0 0 6px 0;
+color: #1e293b;
+text-transform: uppercase;
+letter-spacing: 1px;
+}
+.header-box p {
+font-size: 10pt;
+color: #64748b;
+margin: 0;
+}
+.vector-container {
+background: #ffffff;
+border: 1px dashed #cbd5e1;
+border-radius: 8px;
+padding: 30px;
+display: flex;
+justify-content: center;
+align-items: center;
+margin: 20px 0;
+}
+.specs-card {
+background: #f8fafc;
+border: 1px solid #e2e8f0;
+border-radius: 6px;
+padding: 16px 24px;
+width: 100%;
+max-width: 500px;
+margin-top: 15px;
+}
+.specs-card h3 {
+margin: 0 0 10px 0;
+font-size: 11pt;
+color: #334155;
+border-bottom: 1px solid #e2e8f0;
+padding-bottom: 4px;
+}
+.specs-list {
+margin: 0;
+padding-left: 20px;
+font-size: 9.5pt;
+color: #475569;
+line-height: 1.6;
+}
+</style>
+<div contenteditable="true">
+<section class="page">
+<div class="page-content">
+<div class="header-box">
+<h1>Plantilla de Grabado Láser</h1>
+<p>Diseño Vectorial para Posavasos Personalizado</p>
+</div>
+<!-- Grabado en Blanco y Negro -->
+<div class="vector-container">
+<svg width="340" height="340" viewBox="0 0 340 340" xmlns="http://www.w3.org/2000/svg" style="background: white;">
+<!-- Círculos de referencia del posavasos (Línea tenue guía) -->
+<circle cx="170" cy="170" r="150" fill="none" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4 4" />
+<circle cx="170" cy="170" r="105" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 4" />
+<circle cx="170" cy="170" r="12" fill="none" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="2 2" />
+<!-- Elementos de Grabado en Negro Puro (#000000) -->
+<g fill="#000000" stroke="#000000">
+<!-- Iniciales -->
+<text x="170" y="118" font-family="'Times New Roman', Georgia, serif" font-size="30" font-weight="bold" text-anchor="middle" stroke="none">R & L</text>
+<!-- Anillos de Boda -->
+<g transform="translate(170, 142)" stroke-width="2" fill="none">
+<!-- Anillo izquierdo -->
+<ellipse cx="-11" cy="0" rx="15" ry="10" transform="rotate(-15 -11 0)" />
+<!-- Anillo derecho -->
+<ellipse cx="11" cy="0" rx="15" ry="10" transform="rotate(15 11 0)" />
+</g>
+<!-- Ramita de Olivo Izquierda -->
+<g transform="translate(170, 170)">
+<!-- Tallo principal -->
+<path d="M -118,-20 A 120 120 0 0 0 -70,95" fill="none" stroke="#000000" stroke-width="2.5" stroke-linecap="round" />
+<!-- Hojas -->
+<path d="M -118,-20 C -128,-30 -133,-20 -125,-10 C -120,-15 -118,-20 -118,-20 Z" stroke-width="1" />
+<path d="M -116,-8 C -130,-10 -132,-1 -122,5 C -118,0 -116,-8 -116,-8 Z" stroke-width="1" />
+<path d="M -112,8 C -125,12 -125,23 -114,23 C -112,16 -112,8 -112,8 Z" stroke-width="1" />
+<path d="M -106,24 C -120,33 -116,42 -106,39 C -104,32 -106,24 -106,24 Z" stroke-width="1" />
+<path d="M -97,40 C -110,52 -103,60 -94,54 C -94,46 -97,40 -97,40 Z" stroke-width="1" />
+<path d="M -86,56 C -97,70 -88,77 -80,68 C -82,60 -86,56 -86,56 Z" stroke-width="1" />
+<path d="M -72,72 C -80,88 -70,92 -64,81 C -68,75 -72,72 -72,72 Z" stroke-width="1" />
+</g>
+<!-- Ramita de Olivo Derecha -->
+<g transform="translate(170, 170)">
+<!-- Tallo principal -->
+<path d="M 118,-20 A 120 120 0 0 1 70,95" fill="none" stroke="#000000" stroke-width="2.5" stroke-linecap="round" />
+<!-- Hojas -->
+<path d="M 118,-20 C 128,-30 133,-20 125,-10 C 120,-15 118,-20 118,-20 Z" stroke-width="1" />
+<path d="M 116,-8 C 130,-10 132,-1 122,5 C 118,0 116,-8 116,-8 Z" stroke-width="1" />
+<path d="M 112,8 C 125,12 125,23 114,23 C 112,16 112,8 112,8 Z" stroke-width="1" />
+<path d="M 106,24 C 120,33 116,42 106,39 C 104,32 106,24 106,24 Z" stroke-width="1" />
+<path d="M 97,40 C 110,52 103,60 94,54 C 94,46 97,40 97,40 Z" stroke-width="1" />
+<path d="M 86,56 C 97,70 88,77 80,68 C 82,60 86,56 86,56 Z" stroke-width="1" />
+<path d="M 72,72 C 80,88 70,92 64,81 C 68,75 72,72 72,72 Z" stroke-width="1" />
+</g>
+<!-- Fecha inferior -->
+<text x="170" y="285" font-family="'Times New Roman', Georgia, serif" font-size="22" font-weight="bold" text-anchor="middle" stroke="none" letter-spacing="2">31-10-26</text>
+</g>
+</svg>
+</div>
+<!-- Especificaciones -->
+<div class="specs-card">
+<h3>Detalles de la Plantilla</h3>
+<ul class="specs-list">
+<li><strong>Zona central (Círculo interno):</strong> Iniciales <em>R & L</em> con alianzas entrelazadas.</li>
+<li><strong>Zona externa lateral:</strong> Ramas de olivo estilizadas a cada lado.</li>
+<li><strong>Zona inferior:</strong> Fecha del evento <em>31-10-26</em>.</li>
+<li><strong>Formato de color:</strong> Negro puro 100% sobre fondo blanco, listo para grabado CNC o láser.</li>
+</ul>
+</div>
+</div>
+<footer class="page-footer">
+<span>Plantilla de Grabado - Posavasos de Madera</span>
+<span>Documento de Diseño</span>
+</footer>
+</section>
+</div>

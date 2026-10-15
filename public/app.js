@@ -90,7 +90,7 @@ function reiniciarPartida() {
 }
 
 function cantarFinJuego() {
-  if (confirm('¿Estás seguro de cantar el final de la partida? Se revelarán los puntos.')) {
+  if (confirm('¿Estás seguro de cantar el final de la partida? Se revelarán los puntos y se declarará al ganador.')) {
     socket.emit('callEndGame', { roomId: miSalaId }, (res) => {
       if (!res.success) alert(res.message);
     });
@@ -400,6 +400,10 @@ socket.on('cardDrawnEvent', (data) => {
 });
 
 socket.on('turnUpdated', (data) => {
+  // Corrección clave: Forzar el reseteo del estado del juego en el cliente
+  gameState = 'PLAYING';
+  limpiarEfecto();
+
   if (data.topDiscard) {
     document.getElementById('discardSlot').innerText = formatCardText(data.topDiscard);
   }

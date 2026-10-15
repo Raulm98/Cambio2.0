@@ -17,7 +17,7 @@ function createDeck() {
   suits.forEach(suit => {
     for (let value = 1; value <= 12; value++) {
       deck.push({
-        id: `\({value}_\){suit}`,
+        id: `${value}_${suit}`,
         suit: suit,
         value: value,
         points: (value === 12) ? -1 : value
@@ -40,16 +40,18 @@ function calculateScore(cards) {
   return cards.reduce((sum, card) => sum + (card.points !== undefined ? card.points : card.value), 0);
 }
 
-function checkAndHandleGameOver(room, roomId, reason = '') {
-  let gameOver = false;
+function checkAndHandleGameOver(room, roomId, reason = '', forceEnd = false) {
+  let gameOver = forceEnd;
   let triggerPlayerName = '';
 
-  for (const socketId in room.players) {
-    if (room.players[socketId].cards.length === 0) {
-      gameOver = true;
-      triggerPlayerName = room.players[socketId].name;
-      reason = `¡${triggerPlayerName} se ha quedado sin cartas!`;
-      break;
+  if (!gameOver) {
+    for (const socketId in room.players) {
+      if (room.players[socketId].cards.length === 0) {
+        gameOver = true;
+        triggerPlayerName = room.players[socketId].name;
+        reason = `¡${triggerPlayerName} se ha quedado sin cartas!`;
+        break;
+      }
     }
   }
 
@@ -85,7 +87,7 @@ function checkAndHandleGameOver(room, roomId, reason = '') {
 }
 
 function advanceTurn(room, roomId) {
-  // 1. LIMPIAR ESTADOS DEL TURNO ANTERIOR (CORRECCIÓN CLAVE)
+  // Reset explícito de estados de turno
   room.drawnCard = null;
   room.drawnFrom = null;
   room.pendingEffect = null;
@@ -93,12 +95,10 @@ function advanceTurn(room, roomId) {
 
   if (checkAndHandleGameOver(room, roomId)) return;
 
-  // 2. Avanzar al siguiente jugador en la lista
   room.currentTurnIndex = (room.currentTurnIndex + 1) % room.playerOrder.length;
   const currentTurnSocketId = room.playerOrder[room.currentTurnIndex];
 
-  // Log para depuración en Render
-  console.log(`[LOG SUT] Cambio de turno en \({roomId}. Siguiente jugador:\){room.players[currentTurnSocketId].name}`);
+  console.log(`[TURNO] Avanzando turno en sala ${roomId}. Siguiente: ${room.players[currentTurnSocketId].name}`);
 
   io.to(roomId).emit('turnUpdated', {
     currentTurnSocketId: currentTurnSocketId,
@@ -124,7 +124,6 @@ function broadcastBoardUpdate(room, roomId) {
 
 io.on('connection', (socket) => {
 
-  // CREAR SALA (ADMIN DEFINE EL PIN DE ACCESO)
   socket.on('createRoom', ({ maxPlayers, roomPin }, callback) => {
     if (!roomPin || roomPin.trim() === '') {
       return callback({ success: false, message: 'Debes definir un PIN o clave para la sala.' });
@@ -152,7 +151,6 @@ io.on('connection', (socket) => {
     callback({ success: true, roomId: roomId, roomPin: roomPin.trim() });
   });
 
-  // UNIRSE A LA SALA (DOBLE VERIFICACIÓN: SALA + PIN)
   socket.on('joinRoom', ({ roomId, playerName, pin }, callback) => {
     const room = roomGames[roomId];
 
@@ -179,7 +177,6 @@ io.on('connection', (socket) => {
     callback({ success: true, roomId: roomId, isAdmin: socket.id === room.adminId });
   });
 
-  // CONFIGURACIÓN E INICIO DE PARTIDA
   const setupAndStartGame = (roomId) => {
     const room = roomGames[roomId];
     const playerIds = Object.keys(room.players);
@@ -198,6 +195,8 @@ io.on('connection', (socket) => {
     room.currentTurnIndex = 0;
     room.peekedPlayers = new Set();
     room.drawnCard = null;
+    room.drawnFrom = null;
+    room.pendingEffect = null;
 
     playerIds.forEach(id => {
       const playerSocket = io.sockets.sockets.get(id);
@@ -242,7 +241,6 @@ io.on('connection', (socket) => {
     callback({ success: true });
   });
 
-  // INSPECCIÓN INICIAL
   socket.on('peekInitialCard', ({ roomId, cardIndex }, callback) => {
     const room = roomGames[roomId];
     if (!room || room.state !== 'PEEK_PHASE') {
@@ -269,22 +267,29 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ROBAR CARTA
   socket.on('drawCard', ({ roomId, source }, callback) => {
     const room = roomGames[roomId];
-    if (!room || room.state !== 'PLAYING' || socket.id !== room.playerOrder[room.currentTurnIndex]) {
+    if (!room) return callback({ success: false, message: 'Sala no encontrada.' });
+    
+    // Si la sala quedó en SPECIAL_EFFECT_PHASE por algún motivo, la forzamos a PLAYING
+    if (room.state !== 'PLAYING') {
+      room.state = 'PLAYING';
+      room.pendingEffect = null;
+    }
+
+    if (socket.id !== room.playerOrder[room.currentTurnIndex]) {
       return callback({ success: false, message: 'No es tu turno.' });
     }
 
     if (room.drawnCard) {
-      return callback({ success: false, message: 'Ya has robado una carta.' });
+      return callback({ success: false, message: 'Ya has robado una carta en este turno.' });
     }
 
     let card;
     if (source === 'deck') {
       if (room.deck.length === 0) {
         if (room.discardPile.length <= 1) {
-          if (checkAndHandleGameOver(room, roomId, 'Se agotó el mazo')) {
+          if (checkAndHandleGameOver(room, roomId, 'Se agotó el mazo', true)) {
             return callback({ success: false, message: 'Fin de la partida. Mazo agotado.' });
           }
         }
@@ -315,10 +320,9 @@ io.on('connection', (socket) => {
     callback({ success: true, card: card });
   });
 
-  // DESCARTAR CARTA ROBADA
   socket.on('discardDrawnCard', ({ roomId }, callback) => {
     const room = roomGames[roomId];
-    if (!room || room.state !== 'PLAYING' || socket.id !== room.playerOrder[room.currentTurnIndex]) {
+    if (!room || socket.id !== room.playerOrder[room.currentTurnIndex]) {
       return callback({ success: false, message: 'No es tu turno.' });
     }
 
@@ -329,6 +333,9 @@ io.on('connection', (socket) => {
     const card = room.drawnCard;
     room.discardPile.push(card);
     const cardVal = card.value;
+    
+    room.drawnCard = null;
+    room.drawnFrom = null;
 
     if ([8, 9, 10, 11].includes(cardVal)) {
       room.state = 'SPECIAL_EFFECT_PHASE';
@@ -340,10 +347,9 @@ io.on('connection', (socket) => {
     }
   });
 
-  // REEMPLAZAR CARTA EN TABLERO
   socket.on('replaceBoardCard', ({ roomId, cardIndex }, callback) => {
     const room = roomGames[roomId];
-    if (!room || room.state !== 'PLAYING' || socket.id !== room.playerOrder[room.currentTurnIndex]) {
+    if (!room || socket.id !== room.playerOrder[room.currentTurnIndex]) {
       return callback({ success: false, message: 'No es tu turno.' });
     }
 
@@ -358,16 +364,16 @@ io.on('connection', (socket) => {
     player.cards[cardIndex] = room.drawnCard;
     room.discardPile.push(replacedCard);
 
+    room.drawnCard = null;
+    room.drawnFrom = null;
+
     callback({ success: true, replacedCard: replacedCard });
     advanceTurn(room, roomId);
   });
 
-  // DESCARTE VELOZ FUERA DE TURNO
   socket.on('fastDiscard', ({ roomId, cardIndex }, callback) => {
     const room = roomGames[roomId];
-    if (!room || (room.state !== 'PLAYING' && room.state !== 'SPECIAL_EFFECT_PHASE')) {
-      return callback({ success: false, message: 'No se puede descartar en este momento.' });
-    }
+    if (!room) return callback({ success: false, message: 'Sala no encontrada.' });
 
     const player = room.players[socket.id];
     if (!player || cardIndex < 0 || cardIndex >= player.cards.length) {
@@ -384,7 +390,7 @@ io.on('connection', (socket) => {
       room.discardPile.push(targetCard);
 
       io.to(roomId).emit('actionAnnouncement', {
-        message: `⚡ ¡\({player.name} hizo un descarte veloz con un\){targetCard.value}!`,
+        message: `⚡ ¡${player.name} hizo un descarte veloz con un ${targetCard.value}!`,
         type: 'success'
       });
 
@@ -409,22 +415,22 @@ io.on('connection', (socket) => {
     }
   });
 
-  // CANTAR FIN DE JUEGO
   socket.on('callEndGame', ({ roomId }, callback) => {
     const room = roomGames[roomId];
-    if (!room || room.state !== 'PLAYING' || socket.id !== room.playerOrder[room.currentTurnIndex]) {
-      return callback({ success: false, message: 'Solo puedes cantar el fin en tu turno.' });
+    if (!room) return callback({ success: false, message: 'Sala no encontrada.' });
+    
+    if (socket.id !== room.playerOrder[room.currentTurnIndex]) {
+      return callback({ success: false, message: 'Solo puedes cantar el fin durante TU turno.' });
     }
 
     const player = room.players[socket.id];
-    checkAndHandleGameOver(room, roomId, `¡${player.name} cantó el final de la partida!`);
+    checkAndHandleGameOver(room, roomId, `¡${player.name} cantó el final de la partida!`, true);
     callback({ success: true });
   });
 
-  // EFECTOS ESPECIALES
   socket.on('executeEffect8', ({ roomId, cardIndex }, callback) => {
     const room = roomGames[roomId];
-    if (!room || room.pendingEffect !== 8 || socket.id !== room.playerOrder[room.currentTurnIndex]) {
+    if (!room || socket.id !== room.playerOrder[room.currentTurnIndex]) {
       return callback({ success: false, message: 'Acción no permitida.' });
     }
     const player = room.players[socket.id];
@@ -434,7 +440,7 @@ io.on('connection', (socket) => {
 
   socket.on('executeEffect9', ({ roomId, targetSocketId, cardIndex }, callback) => {
     const room = roomGames[roomId];
-    if (!room || room.pendingEffect !== 9 || socket.id !== room.playerOrder[room.currentTurnIndex]) {
+    if (!room || socket.id !== room.playerOrder[room.currentTurnIndex]) {
       return callback({ success: false, message: 'Acción no permitida.' });
     }
     const targetPlayer = room.players[targetSocketId];
@@ -444,16 +450,18 @@ io.on('connection', (socket) => {
 
   socket.on('executeEffect10', ({ roomId, myCardIndex, targetSocketId, targetCardIndex }, callback) => {
     const room = roomGames[roomId];
-    if (!room || room.pendingEffect !== 10 || socket.id !== room.playerOrder[room.currentTurnIndex]) {
+    if (!room || socket.id !== room.playerOrder[room.currentTurnIndex]) {
       return callback({ success: false, message: 'Acción no permitida.' });
     }
 
     const me = room.players[socket.id];
     const target = room.players[targetSocketId];
 
-    const temp = me.cards[myCardIndex];
-    me.cards[myCardIndex] = target.cards[targetCardIndex];
-    target.cards[targetCardIndex] = temp;
+    if (me && target && me.cards[myCardIndex] && target.cards[targetCardIndex]) {
+      const temp = me.cards[myCardIndex];
+      me.cards[myCardIndex] = target.cards[targetCardIndex];
+      target.cards[targetCardIndex] = temp;
+    }
 
     callback({ success: true });
     advanceTurn(room, roomId);
@@ -461,7 +469,7 @@ io.on('connection', (socket) => {
 
   socket.on('peekForEffect11', ({ roomId, myCardIndex, targetSocketId, targetCardIndex }, callback) => {
     const room = roomGames[roomId];
-    if (!room || room.pendingEffect !== 11 || socket.id !== room.playerOrder[room.currentTurnIndex]) {
+    if (!room || socket.id !== room.playerOrder[room.currentTurnIndex]) {
       return callback({ success: false, message: 'Acción no permitida.' });
     }
 
@@ -477,16 +485,18 @@ io.on('connection', (socket) => {
 
   socket.on('confirmSwapEffect11', ({ roomId, shouldSwap, myCardIndex, targetSocketId, targetCardIndex }, callback) => {
     const room = roomGames[roomId];
-    if (!room || room.pendingEffect !== 11 || socket.id !== room.playerOrder[room.currentTurnIndex]) {
+    if (!room || socket.id !== room.playerOrder[room.currentTurnIndex]) {
       return callback({ success: false, message: 'Acción no permitida.' });
     }
 
     if (shouldSwap) {
       const me = room.players[socket.id];
       const target = room.players[targetSocketId];
-      const temp = me.cards[myCardIndex];
-      me.cards[myCardIndex] = target.cards[targetCardIndex];
-      target.cards[targetCardIndex] = temp;
+      if (me && target && me.cards[myCardIndex] && target.cards[targetCardIndex]) {
+        const temp = me.cards[myCardIndex];
+        me.cards[myCardIndex] = target.cards[targetCardIndex];
+        target.cards[targetCardIndex] = temp;
+      }
     }
 
     callback({ success: true });
@@ -521,5 +531,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Servidor de juego corriendo en http://localhost:${PORT}`);
+  console.log(`Servidor de juego corriendo en puerto ${PORT}`);
 });
