@@ -103,8 +103,8 @@ socket.on('roomUpdated', (data) => {
 
   data.connectedPlayers.forEach(nombre => {
     const li = document.createElement('li');
-    li.className = 'list-group-item bg-dark text-white border-secondary';
-    li.innerText = nombre;
+    li.className = 'list-group-item bg-dark text-warning border-secondary fw-bold';
+    li.innerText = `🎃 ${nombre}`;
     list.appendChild(li);
   });
 
@@ -136,13 +136,13 @@ function renderizarTableros(players) {
   players.forEach(p => {
     if (p.socketId !== socket.id) {
       const oppDiv = document.createElement('div');
-      oppDiv.className = 'text-center p-1 border border-secondary rounded';
+      oppDiv.className = 'text-center p-1 border border-secondary rounded bg-dark';
       
       let cardsHtml = p.cards.map((_, index) => 
-        `<div id="opp-${p.socketId}-card-${index}" class="card-slot card-back" style="width:30px; height:45px; font-size:0.6rem;" onclick="tocarCartaOponente('${p.socketId}', ${index})">🎴</div>`
+        `<div id="opp-${p.socketId}-card-${index}" class="card-slot card-back" style="width:30px; height:45px; font-size:0.6rem;" onclick="tocarCartaOponente('${p.socketId}', ${index})">🎃</div>`
       ).join('');
 
-      oppDiv.innerHTML = `<small class="fw-bold d-block mb-1">${p.name}</small><div class="d-flex flex-wrap justify-content-center">${cardsHtml}</div>`;
+      oppDiv.innerHTML = `<small class="fw-bold d-block mb-1 text-warning">🧟 ${p.name}</small><div class="d-flex flex-wrap justify-content-center">${cardsHtml}</div>`;
       opponentsArea.appendChild(oppDiv);
     } else {
       const myCardsGrid = document.getElementById('myCardsGrid');
@@ -152,7 +152,7 @@ function renderizarTableros(players) {
         const cardDiv = document.createElement('div');
         cardDiv.className = 'card-slot card-back';
         cardDiv.id = `my-card-${index}`;
-        cardDiv.innerText = '🎴';
+        cardDiv.innerText = '🎃';
         cardDiv.onclick = () => tocarCartaPropia(index);
         myCardsGrid.appendChild(cardDiv);
       });
@@ -245,7 +245,6 @@ function verificarYEjecutarEfectosComplejos() {
         targetCardIndex: seleccionEfecto.targetCardIndex
       }, (res) => {
         if (res.success) {
-          alert('🔄 Cartas intercambiadas exitosamente a ciegas.');
           limpiarEfecto();
         } else alert(res.message);
       });
@@ -297,7 +296,7 @@ function limpiarEfecto() {
 
 socket.on('startTurnPhase', (data) => {
   gameState = 'PLAYING';
-  actualizarTurnoUI(data.currentTurnSocketId);
+  actualizarTurnoUI(data.currentTurnSocketId, data.currentTurnPlayerName);
 });
 
 function robarMazo() {
@@ -400,7 +399,6 @@ socket.on('cardDrawnEvent', (data) => {
 });
 
 socket.on('turnUpdated', (data) => {
-  // Corrección clave: Forzar el reseteo del estado del juego en el cliente
   gameState = 'PLAYING';
   limpiarEfecto();
 
@@ -408,10 +406,10 @@ socket.on('turnUpdated', (data) => {
     document.getElementById('discardSlot').innerText = formatCardText(data.topDiscard);
   }
   document.getElementById('deckCount').innerText = data.cardsInDeck;
-  actualizarTurnoUI(data.currentTurnSocketId);
+  actualizarTurnoUI(data.currentTurnSocketId, data.currentTurnPlayerName);
 });
 
-function actualizarTurnoUI(turnSocketId) {
+function actualizarTurnoUI(turnSocketId, turnPlayerName) {
   esMiTurno = turnSocketId === socket.id;
 
   const btnCallEnd = document.getElementById('btnCallEnd');
@@ -421,7 +419,7 @@ function actualizarTurnoUI(turnSocketId) {
     document.getElementById('statusBanner').className = 'alert alert-success fw-bold mb-2 py-2 fs-6';
     btnCallEnd.classList.remove('d-none');
   } else {
-    document.getElementById('statusBanner').innerText = '⏳ Turno del oponente...';
+    document.getElementById('statusBanner').innerText = `⏳ Turno del oponente: ${turnPlayerName || 'Jugador'}`;
     document.getElementById('statusBanner').className = 'alert alert-secondary fw-bold mb-2 py-2 fs-6';
     btnCallEnd.classList.add('d-none');
   }
@@ -488,7 +486,7 @@ function marcarCartaSeleccionada(elementId) {
 
 function formatCardText(card) {
   if (!card) return '--';
-  if (card.suit === 'joker') return '🃏 JOKER';
-  const icons = { espadas: '⚔️', copas: '🏆', oros: '🪙', bastos: '🪵' };
+  if (card.suit === 'joker') return '👻 JOKER';
+  const icons = { espadas: '🕷️', copas: '🔮', oros: '🍬', bastos: '🧹' };
   return `${card.value} ${icons[card.suit] || ''}`;
 }

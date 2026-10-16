@@ -87,7 +87,6 @@ function checkAndHandleGameOver(room, roomId, reason = '', forceEnd = false) {
 }
 
 function advanceTurn(room, roomId) {
-  // Reset explícito de estados de turno
   room.drawnCard = null;
   room.drawnFrom = null;
   room.pendingEffect = null;
@@ -97,11 +96,11 @@ function advanceTurn(room, roomId) {
 
   room.currentTurnIndex = (room.currentTurnIndex + 1) % room.playerOrder.length;
   const currentTurnSocketId = room.playerOrder[room.currentTurnIndex];
-
-  console.log(`[TURNO] Avanzando turno en sala ${roomId}. Siguiente: ${room.players[currentTurnSocketId].name}`);
+  const currentTurnPlayerName = room.players[currentTurnSocketId].name;
 
   io.to(roomId).emit('turnUpdated', {
     currentTurnSocketId: currentTurnSocketId,
+    currentTurnPlayerName: currentTurnPlayerName,
     topDiscard: room.discardPile[room.discardPile.length - 1],
     cardsInDeck: room.deck.length
   });
@@ -261,8 +260,10 @@ io.on('connection', (socket) => {
 
     if (room.peekedPlayers.size === Object.keys(room.players).length) {
       room.state = 'PLAYING';
+      const firstPlayerSocketId = room.playerOrder[room.currentTurnIndex];
       io.to(roomId).emit('startTurnPhase', {
-        currentTurnSocketId: room.playerOrder[room.currentTurnIndex]
+        currentTurnSocketId: firstPlayerSocketId,
+        currentTurnPlayerName: room.players[firstPlayerSocketId].name
       });
     }
   });
@@ -271,7 +272,6 @@ io.on('connection', (socket) => {
     const room = roomGames[roomId];
     if (!room) return callback({ success: false, message: 'Sala no encontrada.' });
     
-    // Si la sala quedó en SPECIAL_EFFECT_PHASE por algún motivo, la forzamos a PLAYING
     if (room.state !== 'PLAYING') {
       room.state = 'PLAYING';
       room.pendingEffect = null;
@@ -390,7 +390,7 @@ io.on('connection', (socket) => {
       room.discardPile.push(targetCard);
 
       io.to(roomId).emit('actionAnnouncement', {
-        message: `⚡ ¡${player.name} hizo un descarte veloz con un ${targetCard.value}!`,
+        message: `⚡ ¡${player.name} hizo un descarte veloz correcto con un ${targetCard.value}!`,
         type: 'success'
       });
 
@@ -424,16 +424,23 @@ io.on('connection', (socket) => {
     }
 
     const player = room.players[socket.id];
-    checkAndHandleGameOver(room, roomId, `¡${player.name} cantó el final de la partida!`, true);
+    checkAndHandleGameOver(room, roomId, `🎃 ¡${player.name} cantó el final de la partida!`, true);
     callback({ success: true });
   });
 
+  // NOTIFICACIONES DE EFECTOS ESPECIALES
   socket.on('executeEffect8', ({ roomId, cardIndex }, callback) => {
     const room = roomGames[roomId];
     if (!room || socket.id !== room.playerOrder[room.currentTurnIndex]) {
       return callback({ success: false, message: 'Acción no permitida.' });
     }
     const player = room.players[socket.id];
+
+    io.to(roomId).emit('actionAnnouncement', {
+      message: `👁️ ${player.name} usó el efecto del 8 y miró una de sus propias cartas.`,
+      type: 'info'
+    });
+
     callback({ success: true, card: player.cards[cardIndex] });
     advanceTurn(room, roomId);
   });
@@ -443,7 +450,14 @@ io.on('connection', (socket) => {
     if (!room || socket.id !== room.playerOrder[room.currentTurnIndex]) {
       return callback({ success: false, message: 'Acción no permitida.' });
     }
+    const player = room.players[socket.id];
     const targetPlayer = room.players[targetSocketId];
+
+    io.to(roomId).emit('actionAnnouncement', {
+      message: `👁️ ${player.name} usó el efecto del 9 y miró una carta de ${targetPlayer.name}.`,
+      type: 'info'
+    });
+
     callback({ success: true, card: targetPlayer.cards[cardIndex] });
     advanceTurn(room, roomId);
   });
@@ -461,6 +475,11 @@ io.on('connection', (socket) => {
       const temp = me.cards[myCardIndex];
       me.cards[myCardIndex] = target.cards[targetCardIndex];
       target.cards[targetCardIndex] = temp;
+
+      io.to(roomId).emit('actionAnnouncement', {
+        message: `🔄 ${me.name} usó el efecto del 10 e intercambió una carta a ciegas con ${target.name}.`,
+        type: 'warning'
+      });
     }
 
     callback({ success: true });
@@ -489,14 +508,23 @@ io.on('connection', (socket) => {
       return callback({ success: false, message: 'Acción no permitida.' });
     }
 
-    if (shouldSwap) {
-      const me = room.players[socket.id];
-      const target = room.players[targetSocketId];
-      if (me && target && me.cards[myCardIndex] && target.cards[targetCardIndex]) {
-        const temp = me.cards[myCardIndex];
-        me.cards[myCardIndex] = target.cards[targetCardIndex];
-        target.cards[targetCardIndex] = temp;
-      }
+    const me = room.players[socket.id];
+    const target = room.players[targetSocketId];
+
+    if (shouldSwap && me && target && me.cards[myCardIndex] && target.cards[targetCardIndex]) {
+      const temp = me.cards[myCardIndex];
+      me.cards[myCardIndex] = target.cards[targetCardIndex];
+      target.cards[targetCardIndex] = temp;
+
+      io.to(roomId).emit('actionAnnouncement', {
+        message: `🔄 ${me.name} usó el efecto del 11 (Sota) e intercambió una carta con ${target.name}.`,
+        type: 'warning'
+      });
+    } else {
+      io.to(roomId).emit('actionAnnouncement', {
+        message: `👁️ ${me.name} usó el efecto del 11 (Sota) para mirar su carta y la de ${target.name}, pero decidió no intercambiar.`,
+        type: 'info'
+      });
     }
 
     callback({ success: true });
